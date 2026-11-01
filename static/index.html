@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GO부동산 · 강서구 부동산 대시보드</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <img src="logo.png" alt="GO부동산 로고" class="logo">
+    <div>
+      <div class="brand-name">GO부동산</div>
+      <div class="brand-sub">서울 강서구 아파트 시장 브리핑</div>
+    </div>
+  </div>
+  <div class="contact">
+    <div class="contact-label">상담 문의</div>
+    <a href="tel:0269595040" class="tel">☎ 02-6959-5040</a>
+    <a href="tel:01027335040" class="tel">📱 010-2733-5040</a>
+  </div>
+</header>
+
+<section class="controls card">
+  <div class="ctrl">
+    <label for="dong">지역(행정동)</label>
+    <select id="dong"><option value="">강서구 전체</option></select>
+  </div>
+  <div class="ctrl">
+    <label>집계 단위</label>
+    <div class="seg" id="mode">
+      <button data-v="week" class="on">주간</button>
+      <button data-v="month">월간</button>
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>기간 직접 지정</label>
+    <div class="dates">
+      <input type="date" id="from"> <span>~</span> <input type="date" id="to">
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>빠른 선택</label>
+    <div class="seg" id="presets">
+      <button data-d="7">1주</button>
+      <button data-m="1">1개월</button>
+      <button data-m="3">3개월</button>
+      <button data-m="6">6개월</button>
+      <button data-m="12">1년</button>
+    </div>
+  </div>
+  <button id="apply" class="btn-primary">조회</button>
+  <button id="print" class="btn-ghost" title="브리핑 자료 인쇄/PDF 저장">🖨 인쇄</button>
+</section>
+
+<div id="status" class="status"></div>
+
+<section class="kpis" id="kpis"></section>
+
+<section class="grid2">
+  <div class="card">
+    <div class="card-h"><h2 id="idxTitle">아파트 가격지수</h2><span class="src">한국부동산원</span></div>
+    <div class="chart"><canvas id="cIndex"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h2 id="volTitle">거래량 추이</h2><span class="src">국토교통부 실거래</span></div>
+    <div class="chart"><canvas id="cVol"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h2>행정동별 매매 거래량</h2><span class="src">막대 클릭 시 해당 동 선택 · 소규모 단지는 지번 기준 근사 배정</span></div>
+    <div class="chart"><canvas id="cDong"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h2>매수심리 (수급지수 · 서남권)</h2><span class="src">한국부동산원 · 100 초과 = 수요 우위</span></div>
+    <div class="chart"><canvas id="cSupply"></canvas></div>
+  </div>
+</section>
+
+<section class="main2">
+  <div class="left">
+    <div class="card">
+      <div class="card-h">
+        <h2 id="topTitle">강서구 아파트 TOP 10</h2>
+        <div class="seg small" id="sortBy">
+          <button data-v="cnt" class="on">거래량순</button>
+          <button data-v="max">최고가순</button>
+        </div>
+      </div>
+      <div class="tabs" id="topTabs">
+        <button data-v="trade" class="on">매매</button>
+        <button data-v="jeonse">전세</button>
+        <button data-v="wolse">월세</button>
+      </div>
+      <table class="tbl" id="topTbl"></table>
+      <p class="hint">단지를 클릭하면 오른쪽 지도에 위치와 평형별 최근 실거래가, 아래에 입지분석이 표시됩니다.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>추천 매물</h2><span class="badge-sample">샘플</span></div>
+      <div id="listings" class="listings"></div>
+      <p class="hint">※ 브리핑 시연용 샘플 매물입니다. 실제 광고 매물·가격은 상담 시 확인해 드립니다.</p>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card sticky">
+      <div class="card-h"><h2 id="mapTitle">강서구 지도</h2><span class="src" id="mapSub">행정동별 매매 거래량</span></div>
+      <div id="map"></div>
+      <div id="aptPrices"></div>
+    </div>
+  </div>
+</section>
+
+<section id="analysis" class="card analysis hidden"></section>
+
+<footer class="foot">
+  <div><b>GO부동산</b> · ☎ 02-6959-5040 · 📱 010-2733-5040</div>
+  <div class="small">자료: 국토교통부 아파트 매매·전월세 실거래가(공공데이터포털), 한국부동산원 부동산통계(R-ONE), 지도·시설 © OpenStreetMap contributors.
+    실거래는 계약일 기준이며 신고기한(30일)으로 최근 자료는 추가될 수 있습니다. 개발계획은 추진 단계 정보로 변동될 수 있습니다.</div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="listings.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# API 키 (절대 커밋 금지)
+config.json
+index_개인용.html
+
+# API 응답 캐시
+cache/
+
+__pycache__/
+*.pyc
