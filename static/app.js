@@ -107,18 +107,32 @@ async function fetchMolit(kind, ym) {
   return rows;
 }
 const molit = (kind, ym) => (EMBED ? fetchMolit(kind, ym) : getJSON(`/api/${kind}?ym=${ym}`));
-// 공개용 파일에는 키가 없으므로 처음 한 번 입력받아 이 브라우저에만 저장
-function ensureMolitKey() {
+// 공개용 파일에는 키가 없으므로 화면의 입력칸으로 받아 이 브라우저에만 저장
+const BUILT_IN_KEY = !!EMBED?.molitKey;
+function hasMolitKey() {
   if (!EMBED || EMBED.molitKey) return true;
-  let k = null;
-  try { k = localStorage.getItem('gs_molit_key'); } catch (e) { /* 저장소 사용 불가 */ }
-  if (!k) {
-    k = (prompt('공공데이터포털 인증키(Encoding)를 입력하세요.\n(국토교통부 아파트 실거래가 API · 이 브라우저에만 저장됩니다)') || '').trim();
-    if (!k) return false;
-    try { localStorage.setItem('gs_molit_key', k); } catch (e) { /* 저장 실패 시 이번 세션만 사용 */ }
-  }
+  try { EMBED.molitKey = localStorage.getItem('gs_molit_key') || ''; } catch (e) { /* 저장소 사용 불가 */ }
+  return !!EMBED.molitKey;
+}
+function showKeyBox(show, msg) {
+  $('#keyBox').classList.toggle('hidden', !show);
+  $('#keyMsg').textContent = msg || '';
+  if (show) $('#keyInput').focus();
+}
+function saveKey() {
+  const k = $('#keyInput').value.trim();
+  if (!k) { showKeyBox(true, '인증키를 붙여넣어 주세요.'); return; }
   EMBED.molitKey = k;
-  return true;
+  try { localStorage.setItem('gs_molit_key', k); } catch (e) { /* 저장 실패 시 이번 접속에서만 사용 */ }
+  $('#keyInput').value = '';
+  showKeyBox(false);
+  S.months = {}; S.apts.clear();
+  apply();
+}
+function resetKey() {
+  try { localStorage.removeItem('gs_molit_key'); } catch (e) { /* 무시 */ }
+  EMBED.molitKey = '';
+  showKeyBox(true);
 }
 
 // ───────── 단지명 매칭 (실거래 단지 ↔ OSM 좌표) ─────────
@@ -204,7 +218,7 @@ async function ensureMonths(list) {
       const [trade, rent] = await Promise.all([molit('trade', ym), molit('rent', ym)]);
       trade.forEach(registerApt); rent.forEach(registerApt);
       S.months[ym] = { trade, rent };
-    } catch (e) { failed++; console.warn(ym, e); }
+    } catch (e) { failed++; S.lastErr = e.message; console.warn(ym, e); }
     setStatus(`실거래 자료 불러오는 중… ${++done}/${need.length}개월`);
   });
   resolveApprox();
@@ -266,6 +280,7 @@ async function renderKPIs() {
     { k: '강서구 미분양', v: u1 ? u1.v.toLocaleString() : '-', u: '호', d: u1 ? `${u1.desc} · 1년 전 대비 ${u12 ? delta(u1.v - u12.v, '호', 0) : '-'}` : '자료 없음' },
     { k: '매매수급지수(서남권)', v: s1 ? s1.v.toFixed(1) : '-', u: '', d: s1 ? `${s1.desc} · ${s1.v > 100 ? '<span class="up">매수자 우위</span>' : '<span class="down">매도자 우위</span>'} (기준 100)` : '자료 없음' },
   ];
+  if (S.noKey) tiles.slice(0, 4).forEach((t) => { t.v = '-'; t.u = ''; t.d = '인증키 입력 후 표시'; });
   $('#kpis').innerHTML = tiles.map((t) => `<div class="kpi ${t.red ? 'red' : ''}"><div class="k">${t.k}</div>
     <div class="v">${t.v}<small>${t.u}</small></div><div class="d">${t.d}</div></div>`).join('');
 }
@@ -565,14 +580,27 @@ async function apply() {
   const months = [...new Set([...monthsBetween(p.from, S.to), ...last12])].filter((m) => m <= ymOf(todayISO()));
   $('#apply').disabled = true;
   try {
-    const failed = await ensureMonths(months);
+    // 인증키가 없으면 실거래는 건너뛰고 부동산원 지표(파일에 포함)만 표시
+    S.noKey = !hasMolitKey();
+    showKeyBox(S.noKey);
+    let failed = 0;
+    if (!S.noKey) {
+      failed = await ensureMonths(months);
+      if (failed && /SERVICE_KEY|등록되지 않은|인증/i.test(S.lastErr || '')) {
+        if (!BUILT_IN_KEY) resetKey();
+        $('#keyMsg').textContent = '인증키가 올바르지 않거나 아직 승인되지 않았습니다. 다시 확인해 주세요.';
+        S.noKey = true;
+      }
+    }
     setStatus('지표 계산 중…');
     renderAllLocal();
     await Promise.all([renderKPIs(), renderIndex(), renderSupply()]);
     if (S.sel) selectApt(S.sel);
     const lag = S.to > addDays(todayISO(), -30) ? ' · 최근 30일 거래는 신고기한 내 추가 반영될 수 있습니다.' : '';
-    setStatus(`조회기간 ${S.from} ~ ${S.to} (${S.mode === 'week' ? '주간' : '월간'}) · 비교기간 ${p.from} ~ ${p.to}${lag}` +
-      (EMBED ? ` · 부동산원 지표 ${EMBED.rebAsOf} 기준` : '') + (failed ? ` · ${failed}개월 자료 불러오기 실패` : ''), failed > 0);
+    const reb = EMBED ? ` · 부동산원 지표 ${EMBED.rebAsOf} 기준` : '';
+    if (S.noKey) setStatus(`부동산원 지표만 표시 중입니다${reb}. 실거래(거래량·TOP 10·실거래가)는 위에 인증키를 입력하면 표시됩니다.`, true);
+    else setStatus(`조회기간 ${S.from} ~ ${S.to} (${S.mode === 'week' ? '주간' : '월간'}) · 비교기간 ${p.from} ~ ${p.to}${lag}` +
+      reb + (failed ? ` · ${failed}개월 자료 불러오기 실패` : ''), failed > 0);
   } catch (e) {
     setStatus('자료를 불러오지 못했습니다: ' + e.message, true);
   } finally { $('#apply').disabled = false; }
@@ -595,6 +623,9 @@ function bind() {
   };
   $('#apply').onclick = apply;
   $('#print').onclick = () => window.print();
+  $('#keySave').onclick = saveKey;
+  $('#keyInput').onkeydown = (e) => { if (e.key === 'Enter') saveKey(); };
+  if (EMBED && !BUILT_IN_KEY) { $('#keyReset').hidden = false; $('#keyReset').onclick = (e) => { e.preventDefault(); resetKey(); scrollTo(0, 0); }; }
   $('#topTabs').onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return;
     S.topKind = b.dataset.v; document.querySelectorAll('#topTabs button').forEach((x) => x.classList.toggle('on', x === b)); renderTop();
@@ -621,6 +652,5 @@ function bind() {
   setRange(defaultRange('week'));
   bind(); initMap();
   try { await loadStatic(); } catch (e) { setStatus('기본 데이터 로드 실패: ' + e.message, true); return; }
-  if (!ensureMolitKey()) { setStatus('실거래 조회에는 공공데이터포털 인증키가 필요합니다. 새로고침 후 입력해 주세요.', true); return; }
   await apply();
 })();

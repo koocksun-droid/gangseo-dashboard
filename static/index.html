@@ -58,6 +58,20 @@
   <button id="print" class="btn-ghost" title="브리핑 자료 인쇄/PDF 저장">🖨 인쇄</button>
 </section>
 
+<section id="keyBox" class="card keybox hidden">
+  <div class="keytxt">
+    <b>🔑 실거래 자료(거래량 · TOP 10 · 실거래가)를 보려면 공공데이터포털 인증키가 필요합니다</b>
+    <div class="small">공공데이터포털에서 「국토교통부_아파트 매매 실거래가 자료」와 「아파트 전월세 실거래가 자료」를 활용신청한 뒤,
+      마이페이지의 <b>일반 인증키(Encoding)</b>를 붙여넣으세요. 키는 이 브라우저에만 저장됩니다.
+      <a href="https://www.data.go.kr/tcs/dss/selectDataSetList.do?keyword=%EC%95%84%ED%8C%8C%ED%8A%B8+%EC%8B%A4%EA%B1%B0%EB%9E%98%EA%B0%80" target="_blank" rel="noopener">공공데이터포털 바로가기</a></div>
+    <div id="keyMsg" class="keymsg"></div>
+  </div>
+  <div class="keyrow">
+    <input id="keyInput" type="password" placeholder="인증키 붙여넣기" autocomplete="off">
+    <button id="keySave" class="btn-primary">저장 후 조회</button>
+  </div>
+</section>
+
 <div id="status" class="status"></div>
 
 <section class="kpis" id="kpis"></section>
@@ -119,7 +133,7 @@
 <section id="analysis" class="card analysis hidden"></section>
 
 <footer class="foot">
-  <div><b>GO부동산</b> · ☎ 02-6959-5040 · 📱 010-2733-5040</div>
+  <div><b>GO부동산</b> · ☎ 02-6959-5040 · 📱 010-2733-5040 <a href="#" id="keyReset" class="keyreset" hidden>인증키 변경</a></div>
   <div class="small">자료: 국토교통부 아파트 매매·전월세 실거래가(공공데이터포털), 한국부동산원 부동산통계(R-ONE), 지도·시설 © OpenStreetMap contributors.
     실거래는 계약일 기준이며 신고기한(30일)으로 최근 자료는 추가될 수 있습니다. 개발계획은 추진 단계 정보로 변동될 수 있습니다.</div>
 </footer>

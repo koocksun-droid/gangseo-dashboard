@@ -45,6 +45,15 @@ select { min-width: 150px; }
 .btn-primary { background: var(--red); color: #fff; border: 0; border-radius: 8px; padding: 9px 22px; font-weight: 700; font-size: 14px; }
 .btn-ghost { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font-size: 13px; }
 
+.keybox { margin: 12px 28px 0; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; border: 2px solid var(--red); background: #fffafa; }
+.keybox.hidden { display: none; }
+.keytxt { flex: 1 1 420px; font-size: 14px; }
+.keytxt .small { font-size: 12px; color: var(--ink2); margin-top: 4px; line-height: 1.6; }
+.keytxt a { color: var(--red); font-weight: 700; }
+.keymsg { color: var(--red); font-size: 12px; font-weight: 700; margin-top: 4px; }
+.keyrow { display: flex; gap: 8px; flex: 1 1 320px; }
+.keyrow input { flex: 1; min-width: 0; font-family: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.keyreset { margin-left: 10px; font-size: 12px; color: var(--muted); }
 .status { margin: 8px 28px 0; color: var(--ink2); font-size: 13px; min-height: 18px; }
 .status.err { color: var(--red); }
 
@@ -145,7 +154,7 @@ select { min-width: 150px; }
 }
 @media print {
   body { background: #fff; }
-  .controls, #print, .hint { display: none; }
+  .controls, #print, .hint, .keybox, .keyreset { display: none; }
   .card, .kpi { box-shadow: none; border: 1px solid var(--line); }
   .grid2, .main2 { grid-template-columns: 1fr 1fr; }
   .sticky { position: static; }
