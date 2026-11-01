@@ -785,7 +785,7 @@ function renderTop() {
   const rows = topRows();
   const kindName = { trade: '매매', jeonse: '전세', wolse: '월세' }[S.topKind];
   $('#topTitle').textContent = `${S.dong || '강서구'} 아파트 TOP 10 · ${kindName}`;
-  if (!rows.length) { $('#topTbl').innerHTML = '<tr><td class="empty">선택한 기간·지역에 거래가 없습니다.</td></tr>'; return; }
+  if (!rows.length) { $('#topTbl').innerHTML = `<tr><td class="empty">${S.noKey ? '공공데이터포털 인증키를 입력하면 TOP 10이 표시됩니다.' : '선택한 기간·지역에 거래가 없습니다.'}</td></tr>`; return; }
   const fmtAvg = (x) => S.topKind === 'wolse' ? `${eok(avg(x.list.map((r) => r.deposit)))}/${Math.round(x.avg)}` : eok(x.avg);
   const fmtMax = (x) => (S.topKind === 'wolse' ? wolseStr(x.max) : eok(x.maxV)) + `<div class="apt-sub">${Math.round(x.max.area)}㎡ · ${x.max.floor}층</div>`;
   $('#topTbl').innerHTML = `<thead><tr><th>순위</th><th>단지</th><th class="num">거래</th><th class="num">평균${S.topKind === 'wolse' ? '(보증금/월세)' : ''}</th><th class="num">최고가</th></tr></thead>
@@ -811,7 +811,7 @@ function renderListings() {
     const key = keyByName(l.apt);
     const rc = key && recentFor(key, l.type, l.area);
     const price = l.type === '월세' ? `${won(l.price)} / ${l.rent}` : won(l.price);
-    const cmp = rc ? `최근 실거래 ${l.type === '매매' ? eok(rc.price) : l.type === '전세' ? eok(rc.deposit) : wolseStr(rc)} (${rc.date.slice(2).replace(/-/g, '.')}, ${rc.floor}층)` : '최근 1년 동일 평형 실거래 없음';
+    const cmp = rc ? `최근 실거래 ${l.type === '매매' ? eok(rc.price) : l.type === '전세' ? eok(rc.deposit) : wolseStr(rc)} (${rc.date.slice(2).replace(/-/g, '.')}, ${rc.floor}층)` : S.noKey ? '인증키 입력 후 최근 실거래가 표시' : '최근 1년 동일 평형 실거래 없음';
     return `<div class="lst ${S.selListing === l.id ? 'sel' : ''}" data-id="${l.id}">
       <span class="srcl">N 광고(샘플)</span>
       <span class="t ${l.type}">${l.type}</span>
@@ -826,7 +826,18 @@ function renderListings() {
 // ───────── 지도 ─────────
 function initMap() {
   S.map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView([37.555, 126.835], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(S.map);
+  // OSM 공식 타일은 파일(file://)로 열거나 리퍼러가 없으면 차단되므로 OSM 프랑스(HOT) 타일 사용, 실패 시 대체 타일로 전환
+  const TILES = [
+    ['https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', '© OpenStreetMap contributors, 타일 © OSM France (HOT)', 'abc'],
+    ['https://tile.openstreetmap.de/{z}/{x}/{y}.png', '© OpenStreetMap contributors, 타일 © OSM Deutschland', ''],
+  ];
+  let ti = 0, errs = 0;
+  const addTiles = () => {
+    S.layers.base?.remove();
+    S.layers.base = L.tileLayer(TILES[ti][0], { maxZoom: 19, subdomains: TILES[ti][2] || 'abc', attribution: TILES[ti][1] }).addTo(S.map);
+    S.layers.base.on('tileerror', () => { if (++errs > 6 && ti < TILES.length - 1) { ti++; errs = 0; addTiles(); } });
+  };
+  addTiles();
   S.layers.apt = L.layerGroup().addTo(S.map);
 }
 function renderDongLayer() {
