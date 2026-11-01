@@ -493,11 +493,21 @@ async function fetchMolit(kind, ym) {
   if (old) { try { localStorage.setItem(ck, JSON.stringify(rows)); } catch (e) { /* 용량 초과 시 무시 */ } }
   return rows;
 }
-const molit = (kind, ym) => (EMBED ? fetchMolit(kind, ym) : getJSON(`/api/${kind}?ym=${ym}`));
+// GitHub Actions 배포본: 실거래가 미리 포함됨(EMBED.molit) → 키 없이 사용, 포함 범위 밖의 달만 직접 조회
+const T_COLS = ['apt', 'umd', 'jibun', 'area', 'floor', 'by', 'date', 'price', 'gbn'];
+const R_COLS = ['apt', 'umd', 'jibun', 'area', 'floor', 'by', 'date', 'deposit', 'rent'];
+const unpack = (rows, cols) => rows.map((a) => Object.fromEntries(cols.map((c, i) => [c, a[i]])));
+function molit(kind, ym) {
+  if (!EMBED) return getJSON(`/api/${kind}?ym=${ym}`);
+  const m = EMBED.molit?.[ym];
+  if (m) return Promise.resolve(kind === 'trade' ? unpack(m.t, T_COLS) : unpack(m.r, R_COLS));
+  if (EMBED.molit && !EMBED.molitKey) return Promise.resolve([]); // 포함 범위 밖 + 키 없음
+  return fetchMolit(kind, ym);
+}
 // 공개용 파일에는 키가 없으므로 화면의 입력칸으로 받아 이 브라우저에만 저장
 const BUILT_IN_KEY = !!EMBED?.molitKey;
 function hasMolitKey() {
-  if (!EMBED || EMBED.molitKey) return true;
+  if (!EMBED || EMBED.molitKey || EMBED.molit) return true;
   try { EMBED.molitKey = localStorage.getItem('gs_molit_key') || ''; } catch (e) { /* 저장소 사용 불가 */ }
   return !!EMBED.molitKey;
 }
@@ -995,7 +1005,7 @@ async function apply() {
     await Promise.all([renderKPIs(), renderIndex(), renderSupply()]);
     if (S.sel) selectApt(S.sel);
     const lag = S.to > addDays(todayISO(), -30) ? ' · 최근 30일 거래는 신고기한 내 추가 반영될 수 있습니다.' : '';
-    const reb = EMBED ? ` · 부동산원 지표 ${EMBED.rebAsOf} 기준` : '';
+    const reb = EMBED ? (EMBED.molitAsOf ? ` · 자료 ${EMBED.molitAsOf} 자동 갱신` : '') + ` · 부동산원 지표 ${EMBED.rebAsOf} 기준` : '';
     if (S.noKey) setStatus(`부동산원 지표만 표시 중입니다${reb}. 실거래(거래량·TOP 10·실거래가)는 위에 인증키를 입력하면 표시됩니다.`, true);
     else setStatus(`조회기간 ${S.from} ~ ${S.to} (${S.mode === 'week' ? '주간' : '월간'}) · 비교기간 ${p.from} ~ ${p.to}${lag}` +
       reb + (failed ? ` · ${failed}개월 자료 불러오기 실패` : ''), failed > 0);

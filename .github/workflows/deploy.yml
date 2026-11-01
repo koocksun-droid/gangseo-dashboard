@@ -1,0 +1,62 @@
+# 매일 아침 실거래·부동산원 자료를 받아 대시보드를 새로 만들고 GitHub Pages에 배포
+# API 키는 저장소 Settings → Secrets and variables → Actions 에 저장 (DATA_GO_KR_KEY, REB_KEY)
+# 키는 빌드 중에만 쓰이며, 배포되는 페이지에는 받은 자료만 들어가고 키는 포함되지 않음
+name: 대시보드 자동 갱신
+
+on:
+  schedule:
+    - cron: '0 21 * * *'   # 매일 06:00 (한국시간)
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 3개월 이전 실거래는 변하지 않으므로 캐시해 API 호출을 줄임
+      - uses: actions/cache@v4
+        with:
+          path: cache
+          key: api-cache-${{ github.run_id }}
+          restore-keys: api-cache-
+
+      - name: 자료 받아 index.html 생성
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          REB_KEY: ${{ secrets.REB_KEY }}
+        run: python tools/build_index.py --with-data --out _site/index.html
+
+      - name: 키 미포함 확인
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          REB_KEY: ${{ secrets.REB_KEY }}
+        run: |
+          if grep -qF "$DATA_GO_KR_KEY" _site/index.html || grep -qF "$REB_KEY" _site/index.html; then
+            echo "API 키가 페이지에 포함되어 배포를 중단합니다"; exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
