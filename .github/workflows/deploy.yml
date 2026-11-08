@@ -39,18 +39,26 @@ jobs:
           key: api-cache-${{ github.run_id }}
           restore-keys: api-cache-
 
+      # Secrets가 있으면 최신 자료로 새로 만들고, 없으면 PC에서 올린 완성본(index.html)을 그대로 배포
       - name: 자료 받아 index.html 생성
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           REB_KEY: ${{ secrets.REB_KEY }}
-        run: python tools/build_index.py --with-data --out _site/index.html
+        run: |
+          mkdir -p _site
+          if [ -n "$DATA_GO_KR_KEY" ] && [ -n "$REB_KEY" ] && python tools/build_index.py --with-data --out _site/index.html; then
+            echo "최신 자료로 생성 완료"
+          else
+            echo "Secrets 없음 또는 조회 실패 → 저장소의 완성본 index.html 배포"
+            cp index.html _site/index.html
+          fi
 
       - name: 키 미포함 확인
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           REB_KEY: ${{ secrets.REB_KEY }}
         run: |
-          if grep -qF "$DATA_GO_KR_KEY" _site/index.html || grep -qF "$REB_KEY" _site/index.html; then
+          if { [ -n "$DATA_GO_KR_KEY" ] && grep -qF "$DATA_GO_KR_KEY" _site/index.html; } || { [ -n "$REB_KEY" ] && grep -qF "$REB_KEY" _site/index.html; }; then
             echo "API 키가 페이지에 포함되어 배포를 중단합니다"; exit 1
           fi
 
